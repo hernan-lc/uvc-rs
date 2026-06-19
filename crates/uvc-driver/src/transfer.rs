@@ -97,6 +97,41 @@ impl TransferRequest {
     }
 }
 
+pub trait TransferLoop {
+    fn poll(&mut self) -> EngineResult<Option<CompletedTransfer>>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferBuffer {
+    request: TransferRequest,
+    data: Vec<u8>,
+}
+
+impl TransferBuffer {
+    pub fn new(request: TransferRequest) -> Self {
+        Self {
+            data: vec![0; request.buffer_len()],
+            request,
+        }
+    }
+
+    pub fn request(&self) -> &TransferRequest {
+        &self.request
+    }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+
+    pub fn into_data(self) -> Vec<u8> {
+        self.data
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompletedTransfer {
     endpoint_address: u8,
@@ -139,5 +174,15 @@ mod tests {
         assert_eq!(request.kind(), TransferKind::Isochronous);
         assert_eq!(request.buffer_len(), 1024);
         assert_eq!(request.timeout(), Duration::from_millis(10));
+    }
+
+    #[test]
+    fn transfer_buffer_allocates_requested_size() {
+        let request = TransferRequest::iso_in(0x81, 1024, Duration::from_millis(10)).unwrap();
+        let mut buffer = TransferBuffer::new(request.clone());
+
+        assert_eq!(buffer.request(), &request);
+        assert_eq!(buffer.data().len(), 1024);
+        assert_eq!(buffer.data_mut().len(), 1024);
     }
 }

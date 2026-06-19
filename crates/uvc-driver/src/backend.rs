@@ -3,9 +3,12 @@ use uvc_core::EngineResult;
 use crate::UsbDevice;
 
 #[cfg(feature = "rusb")]
-use crate::{UsbDeviceFilter, UsbDeviceProfile, UsbEndpoint, UsbInterface, UsbTransferType};
+use crate::{
+    RusbUsbDeviceSession, UsbDeviceFilter, UsbDeviceProfile, UsbEndpoint, UsbInterface,
+    UsbTransferType,
+};
 #[cfg(feature = "rusb")]
-use rusb::{ConfigDescriptor, EndpointDescriptor, TransferType, UsbContext};
+use rusb::{ConfigDescriptor, Context, Device, EndpointDescriptor, TransferType, UsbContext};
 #[cfg(feature = "rusb")]
 use uvc_core::EngineError;
 
@@ -89,6 +92,41 @@ impl RusbUsbBackend {
 
         Ok(result)
     }
+
+    pub fn open_device(&self, profile: &UsbDeviceProfile) -> EngineResult<RusbUsbDeviceSession> {
+        let interface = profile.select_uvc_streaming_interface().ok_or_else(|| {
+            EngineError::Backend("device profile has no UVC streaming interface".to_owned())
+        })?;
+
+        self.open_interface(
+            profile.device(),
+            interface.interface_number(),
+            interface.alternate_setting(),
+        )
+    }
+
+    pub fn open_interface(
+        &self,
+        device: &UsbDevice,
+        interface_number: u8,
+        alternate_setting: u8,
+    ) -> EngineResult<RusbUsbDeviceSession> {
+        let devices = self.context.devices().map_err(rusb_error)?;
+
+        for rusb_device in devices.iter() {
+            if device_matches(&rusb_device, device) {
+                return RusbUsbDeviceSession::open(
+                    rusb_device,
+                    interface_number,
+                    alternate_setting,
+                );
+            }
+        }
+
+        Err(EngineError::Backend(
+            "USB device disappeared before it could be opened".to_owned(),
+        ))
+    }
 }
 
 #[cfg(feature = "rusb")]
@@ -113,6 +151,11 @@ impl UsbBackend for RusbUsbBackend {
 
         Ok(result)
     }
+}
+
+#[cfg(feature = "rusb")]
+fn device_matches(device: &Device<Context>, expected: &UsbDevice) -> bool {
+    device.bus_number() == expected.bus_number() && device.address() == expected.device_address()
 }
 
 #[cfg(feature = "rusb")]

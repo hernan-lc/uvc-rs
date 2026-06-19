@@ -1,3 +1,6 @@
+#[cfg(feature = "rusb")]
+pub mod session;
+
 pub mod backend;
 pub mod descriptor;
 pub mod device;
@@ -18,6 +21,11 @@ pub use device::{
     validate_frame_format_for_endpoint,
 };
 pub use fake::{FakeCameraPipeline, FakeFrameGenerator, FakeMultiCameraEngine};
-pub use transfer::{CompletedTransfer, TransferDirection, TransferKind, TransferRequest};
+#[cfg(feature = "rusb")]
+pub use session::{RusbTransferReader, RusbUsbDeviceSession};
+pub use transfer::{
+    CompletedTransfer, TransferBuffer, TransferDirection, TransferKind, TransferLoop,
+    TransferRequest,
+};
 
 pub use uvc_core::{CameraConfig, CameraId, EngineResult, FrameFormat, FrameReceiver, FrameSender};
