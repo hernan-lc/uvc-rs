@@ -13,13 +13,13 @@ Completed against `plan.md` and `.kilo/plans/rust-uvc-engine.md`:
 - UVC descriptor parsing models with synthetic descriptor tests.
 - Optional `rusb` feature plus backend, device, endpoint, interface, transfer, and device-profile abstractions.
 - rusb-backed device discovery, active-config UVC interface parsing, device open, claim, alternate-setting activation, libusb async ISO multi-transfer ring, UVC packet assembly, MJPEG boundary detection, and assembled-frame sink integration.
-- Android file-descriptor identity wrapper, Kotlin-facing JNI exports, and compile-safe `libusb_wrap_sys_device` boundary behind the `android` feature in `uvc-jni`.
+- Android file-descriptor identity wrapper, Kotlin-facing JNI exports, Kotlin companion class, and compile-safe `libusb_wrap_sys_device` boundary behind the `android` feature in `uvc-jni`.
 - Workspace formatting, checks, and tests are passing.
 
 Not complete yet:
 
 - No hardware-validated UVC stream, decoded-frame pipeline, or Android rendering path.
-- No Android target check, Kotlin companion classes, or `ANativeWindow`/`HardwareBuffer` path.
+- No Android target check, Kotlin/Android build integration, or `ANativeWindow`/`HardwareBuffer` path.
 - No performance benchmark suite.
 - No `LICENSE` file yet, despite the workspace package license metadata.
 
@@ -32,7 +32,7 @@ crates/
   uvc-driver/
     UVC descriptor parser, backend traits, rusb-backed device discovery/session management, libusb async ISO multi-transfer ring, UVC packet/MJPEG assembly, MJPEG frame sink adapter, fake deterministic camera backend, performance validation example, and concurrency validation harness.
   uvc-jni/
-    Android USB file-descriptor identity wrapper, libusb fd wrapping boundary, opaque native engine handle, and JNI exports for initialize/start/stop/control/poll/release.
+    Android USB file-descriptor identity wrapper, libusb fd wrapping boundary, Kotlin companion class, opaque native engine handle, and JNI exports for initialize/start/stop/control/poll/release.
   uvc-cli/
     Local CLI tool for fake multi-camera validation.
 ```
@@ -54,7 +54,7 @@ Recommended order:
 1. Validate the libusb async ISO multi-transfer ring on desktop Linux with UVC hardware and measure packet loss/recovery.
 2. Add decoded MJPEG-to-RGBA/YUV sink integration for assembled frames.
 3. Add Android target checks once the NDK and libusb build environment are configured.
-4. Add Kotlin companion classes for the JNI exports.
+4. Add Kotlin/Android build integration for the companion class.
 6. Add benchmarks for frame buffer reuse, bounded-channel latency, and fake multi-camera throughput.
 
 ## Current milestone coverage
