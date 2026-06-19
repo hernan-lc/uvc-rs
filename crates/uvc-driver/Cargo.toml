@@ -9,6 +9,7 @@ default = []
 rusb = ["dep:libc", "dep:libusb1-sys", "dep:rusb"]
 
 [dependencies]
+jpeg-decoder = "0.3"
 tracing.workspace = true
 uvc-core.workspace = true
 libc = { version = "0.2", optional = true }

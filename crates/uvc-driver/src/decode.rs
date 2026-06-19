@@ -38,6 +38,39 @@ where
 }
 
 #[derive(Clone, Copy, Debug, Default)]
+pub struct MjpegToRgbaDecoder;
+
+impl FrameDecoder for MjpegToRgbaDecoder {
+    fn output_format(&self, input_format: FrameFormat) -> EngineResult<FrameFormat> {
+        Ok(FrameFormat::rgba(
+            input_format.width(),
+            input_format.height(),
+            input_format.fps(),
+        )?)
+    }
+
+    fn decode(&mut self, frame: &Frame) -> EngineResult<Vec<u8>> {
+        let format = frame.buffer().format();
+        let mut decoder = jpeg_decoder::Decoder::new(frame.buffer().as_slice());
+        decoder.read_info().map_err(jpeg_decoder_error)?;
+        let info = decoder.info().ok_or_else(|| {
+            EngineError::Backend("MJPEG decoder did not report image info".to_owned())
+        })?;
+
+        if u32::from(info.width) != format.width() || u32::from(info.height) != format.height() {
+            return Err(EngineError::InvalidFrameSize {
+                format: format.to_string(),
+                actual: usize::from(info.width) * usize::from(info.height),
+                expected: (format.width() as usize) * (format.height() as usize),
+            });
+        }
+
+        let pixels = decoder.decode().map_err(jpeg_decoder_error)?;
+        rgba_from_jpeg_pixels(&pixels, info.pixel_format)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct YuyvToRgbaDecoder;
 
 impl FrameDecoder for YuyvToRgbaDecoder {
@@ -148,6 +181,70 @@ impl FrameDecoder for Nv12ToRgbaDecoder {
     }
 }
 
+fn rgba_from_jpeg_pixels(
+    pixels: &[u8],
+    pixel_format: jpeg_decoder::PixelFormat,
+) -> EngineResult<Vec<u8>> {
+    match pixel_format {
+        jpeg_decoder::PixelFormat::RGB24 => {
+            if pixels.len() % 3 != 0 {
+                return Err(EngineError::InvalidFrameFormat(
+                    "RGB24 JPEG pixel buffer length is not divisible by 3".to_owned(),
+                ));
+            }
+
+            let mut rgba = Vec::with_capacity(pixels.len() / 3 * 4);
+            for rgb in pixels.chunks_exact(3) {
+                rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+            }
+            Ok(rgba)
+        }
+        jpeg_decoder::PixelFormat::L8 => Ok(pixels
+            .iter()
+            .flat_map(|value| [*value, *value, *value, 255])
+            .collect()),
+        jpeg_decoder::PixelFormat::L16 => {
+            if pixels.len() % 2 != 0 {
+                return Err(EngineError::InvalidFrameFormat(
+                    "L16 JPEG pixel buffer length is not divisible by 2".to_owned(),
+                ));
+            }
+
+            Ok(pixels
+                .chunks_exact(2)
+                .flat_map(|value| {
+                    let gray = value[0];
+                    [gray, gray, gray, 255]
+                })
+                .collect())
+        }
+        jpeg_decoder::PixelFormat::CMYK32 => {
+            if pixels.len() % 4 != 0 {
+                return Err(EngineError::InvalidFrameFormat(
+                    "CMYK32 JPEG pixel buffer length is not divisible by 4".to_owned(),
+                ));
+            }
+
+            let mut rgba = Vec::with_capacity(pixels.len());
+            for cmyk in pixels.chunks_exact(4) {
+                let c = f32::from(cmyk[0]) / 255.0;
+                let m = f32::from(cmyk[1]) / 255.0;
+                let y = f32::from(cmyk[2]) / 255.0;
+                let k = f32::from(cmyk[3]) / 255.0;
+                let r = (255.0 * (1.0 - c) * (1.0 - k)).round();
+                let g = (255.0 * (1.0 - m) * (1.0 - k)).round();
+                let b = (255.0 * (1.0 - y) * (1.0 - k)).round();
+                rgba.extend_from_slice(&[r as u8, g as u8, b as u8, 255]);
+            }
+            Ok(rgba)
+        }
+    }
+}
+
+fn jpeg_decoder_error(error: jpeg_decoder::Error) -> EngineError {
+    EngineError::Backend(format!("jpeg-decoder error: {error}"))
+}
+
 fn yuv_to_rgb(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
     let y = i32::from(y) - 16;
     let u = i32::from(u) - 128;
@@ -238,6 +335,48 @@ mod tests {
             FrameFormat::rgba(2, 2, 30).unwrap()
         );
         assert_eq!(frames[0].buffer().as_slice(), &[255; 16]);
+    }
+
+    #[test]
+    fn mjpeg_to_rgba_decoder_converts_jpeg_pixels() {
+        let jpeg = include_bytes!("../tests/fixtures/rgb8.jpg");
+        let mut decoder = jpeg_decoder::Decoder::new(&jpeg[..]);
+        decoder.read_info().unwrap();
+        let info = decoder.info().unwrap();
+        let camera_id = CameraId::new("cam-1").unwrap();
+        let frame = Frame::new(
+            camera_id.clone(),
+            11,
+            FrameBuffer::new(
+                FrameFormat::mjpeg(u32::from(info.width), u32::from(info.height), 30).unwrap(),
+                jpeg.to_vec(),
+            )
+            .unwrap(),
+        );
+        let sink = VecFrameSink::default();
+        let mut adapter = DecodedFrameSinkAdapter::new(MjpegToRgbaDecoder, sink);
+
+        adapter.push_frame(frame).unwrap();
+
+        let (_, sink) = adapter.into_inner();
+        assert_eq!(sink.frames.len(), 1);
+        assert_eq!(sink.frames[0].camera_id(), &camera_id);
+        assert_eq!(sink.frames[0].sequence(), 11);
+        assert_eq!(
+            sink.frames[0].buffer().format(),
+            FrameFormat::rgba(u32::from(info.width), u32::from(info.height), 30).unwrap()
+        );
+        assert_eq!(
+            sink.frames[0].buffer().len(),
+            usize::from(info.width) * usize::from(info.height) * 4
+        );
+        assert!(
+            sink.frames[0]
+                .buffer()
+                .as_slice()
+                .chunks_exact(4)
+                .all(|rgba| rgba[3] == 255)
+        );
     }
 
     #[test]

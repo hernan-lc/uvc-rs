@@ -14,7 +14,9 @@ pub mod transfer;
 #[cfg(feature = "rusb")]
 pub use backend::RusbUsbBackend;
 pub use backend::{NoopUsbBackend, UsbBackend};
-pub use decode::{DecodedFrameSinkAdapter, FrameDecoder, Nv12ToRgbaDecoder, YuyvToRgbaDecoder};
+pub use decode::{
+    DecodedFrameSinkAdapter, FrameDecoder, MjpegToRgbaDecoder, Nv12ToRgbaDecoder, YuyvToRgbaDecoder,
+};
 pub use descriptor::{
     DescriptorHeader, EndpointDescriptor, StreamingDescriptor, StreamingDescriptorKind, UvcFormat,
     UvcFormatType, UvcFrame, UvcStreamCollection, UvcStreamInterface,
