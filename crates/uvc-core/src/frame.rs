@@ -3,7 +3,7 @@ use std::{
         Receiver, RecvError, RecvTimeoutError, SendError, SyncSender, TryRecvError, TrySendError,
         sync_channel,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::{CameraId, EngineError, EngineResult, FrameFormat};
@@ -58,6 +58,7 @@ pub struct Frame {
     camera_id: CameraId,
     sequence: u64,
     buffer: FrameBuffer,
+    created_at: Instant,
 }
 
 impl Frame {
@@ -66,6 +67,7 @@ impl Frame {
             camera_id,
             sequence,
             buffer,
+            created_at: Instant::now(),
         }
     }
 
@@ -83,6 +85,10 @@ impl Frame {
 
     pub fn into_buffer(self) -> FrameBuffer {
         self.buffer
+    }
+
+    pub fn age(&self) -> Duration {
+        self.created_at.elapsed()
     }
 }
 

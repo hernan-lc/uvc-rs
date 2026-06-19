@@ -31,7 +31,7 @@ crates/
   uvc-core/
     Pure Rust data model, error types, frame channel, and pipeline trait.
   uvc-driver/
-    UVC descriptor parser, backend traits, rusb-backed device discovery/session management, libusb async ISO multi-transfer ring, UVC packet/MJPEG assembly, MJPEG frame sink adapter, fake deterministic camera backend, and concurrency validation harness.
+    UVC descriptor parser, backend traits, rusb-backed device discovery/session management, libusb async ISO multi-transfer ring, UVC packet/MJPEG assembly, MJPEG frame sink adapter, fake deterministic camera backend, performance validation example, and concurrency validation harness.
   uvc-jni/
     Android USB file-descriptor identity wrapper, opaque native engine handle, and JNI exports for initialize/start/stop/control/poll/release.
   uvc-cli/
@@ -44,7 +44,7 @@ crates/
 cargo fmt --all
 cargo check --workspace --all-targets
 cargo test --workspace
-cargo run -p uvc-cli -- fake-multi --cameras 4 --seconds 1 --fps 30 --width 16 --height 16 --format yuyv
+cargo run -p uvc-driver --example fake-multi-camera-perf -- --cameras 4 --seconds 1 --fps 30 --width 64 --height 64 --capacity-frames 128
 cargo check -p uvc-driver --features rusb
 ```
 
@@ -57,7 +57,7 @@ Recommended order:
 3. Add Android target checks once the NDK and libusb build environment are configured.
 4. Move Android file-descriptor handling from a placeholder into a real `libusb_wrap_sys_device` boundary behind an Android feature.
 5. Add Kotlin companion classes for the JNI exports.
-6. Add benchmarks for fake multi-camera throughput, frame buffer reuse, and bounded-channel latency.
+6. Add benchmarks for frame buffer reuse, bounded-channel latency, and fake multi-camera throughput.
 
 ## Current milestone coverage
 
@@ -70,4 +70,4 @@ Recommended order:
 | Android FD wrapper design | Placeholder only |
 | Real USB backend | Device discovery, session management, libusb async ISO ring, UVC/MJPEG assembly, and assembled-frame sink complete; hardware validation and decoded MJPEG sink pending |
 | JNI binding layer | JNI exports, opaque native engine handles, and fake-camera smoke path complete; Android NDK/libusb wrapping and Kotlin companion classes pending |
-| Performance validation | Not started |
+| Performance validation | Fake multi-camera throughput, consumer buffer reuse, and bounded-channel latency example complete; criterion benchmarks pending |
