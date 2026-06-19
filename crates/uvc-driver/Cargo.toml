@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+rusb = ["dep:rusb"]
+
 [dependencies]
 tracing.workspace = true
 uvc-core.workspace = true
+rusb = { version = "0.9", optional = true, features = ["vendored"] }
