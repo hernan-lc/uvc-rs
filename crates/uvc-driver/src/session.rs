@@ -4,7 +4,8 @@ use rusb::{Context, Device, DeviceHandle, UsbContext};
 use uvc_core::{EngineError, EngineResult};
 
 use crate::{
-    CompletedTransfer, TransferBuffer, TransferLoop, TransferRequest, UsbEndpoint, UsbTransferType,
+    UsbEndpoint, UsbTransferType,
+    transfer::{CompletedTransfer, TransferBuffer, TransferLoop, TransferRequest},
 };
 
 pub struct RusbUsbDeviceSession {

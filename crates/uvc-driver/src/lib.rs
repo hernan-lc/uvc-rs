@@ -25,13 +25,10 @@ pub use device::{
 };
 pub use fake::{FakeCameraPipeline, FakeFrameGenerator, FakeMultiCameraEngine};
 #[cfg(feature = "rusb")]
-pub use iso::{CompletedIsoTransfer, IsoPacketLayout, LibusbIsochronousLoop};
-pub use packet::{MjpegFrameAssembler, UvcPacketAssembler, UvcPayloadHeader, is_mjpeg_frame};
-#[cfg(feature = "rusb")]
-pub use session::{RusbTransferReader, RusbUsbDeviceSession};
-pub use transfer::{
-    CompletedTransfer, TransferBuffer, TransferDirection, TransferKind, TransferLoop,
-    TransferRequest,
+pub use iso::{CompletedIsoTransfer, IsoPacketLayout, LibusbIsochronousLoop, MjpegIsoFrameLoop};
+pub use packet::{
+    MjpegFrameAssembler, MjpegFrameSinkAdapter, UvcPacketAssembler, UvcPayloadHeader,
+    is_mjpeg_frame,
 };
 
 pub use uvc_core::{CameraConfig, CameraId, EngineResult, FrameFormat, FrameReceiver, FrameSender};

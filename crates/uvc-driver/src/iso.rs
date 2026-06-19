@@ -13,7 +13,12 @@ use libusb1_sys::{
 };
 use uvc_core::{EngineError, EngineResult};
 
-use crate::{CompletedTransfer, RusbUsbDeviceSession, TransferLoop, UsbEndpoint, UsbTransferType};
+use crate::{
+    UsbEndpoint, UsbTransferType,
+    packet::MjpegFrameSinkAdapter,
+    session::RusbUsbDeviceSession,
+    transfer::{CompletedTransfer, TransferLoop},
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IsoPacketLayout {
@@ -263,6 +268,53 @@ impl TransferLoop for LibusbIsochronousLoop {
                 )))
             })
             .unwrap_or(Ok(None))
+    }
+}
+
+pub struct MjpegIsoFrameLoop<S>
+where
+    S: uvc_core::FrameSink,
+{
+    iso_loop: LibusbIsochronousLoop,
+    sink_adapter: MjpegFrameSinkAdapter<S>,
+}
+
+impl<S> MjpegIsoFrameLoop<S>
+where
+    S: uvc_core::FrameSink,
+{
+    pub fn new(
+        iso_loop: LibusbIsochronousLoop,
+        sink: S,
+        camera_id: uvc_core::CameraId,
+        format: uvc_core::FrameFormat,
+    ) -> Self {
+        Self {
+            iso_loop,
+            sink_adapter: MjpegFrameSinkAdapter::new(sink, camera_id, format),
+        }
+    }
+
+    pub fn poll_frame(&mut self) -> EngineResult<bool> {
+        let Some(completed) = self.iso_loop.poll_iso()? else {
+            return Ok(false);
+        };
+
+        for packet in completed.packets() {
+            if self.sink_adapter.push_packet(packet)? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub fn buffer_len(&self) -> usize {
+        self.sink_adapter.buffer_len()
+    }
+
+    pub fn clear(&mut self) {
+        self.sink_adapter.clear();
     }
 }
 

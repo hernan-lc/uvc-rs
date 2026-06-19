@@ -4,8 +4,8 @@ use crate::UsbDevice;
 
 #[cfg(feature = "rusb")]
 use crate::{
-    RusbUsbDeviceSession, UsbDeviceFilter, UsbDeviceProfile, UsbEndpoint, UsbInterface,
-    UsbTransferType,
+    UsbDeviceFilter, UsbDeviceProfile, UsbEndpoint, UsbInterface, UsbTransferType,
+    session::RusbUsbDeviceSession,
 };
 #[cfg(feature = "rusb")]
 use rusb::{ConfigDescriptor, Context, Device, EndpointDescriptor, TransferType, UsbContext};
