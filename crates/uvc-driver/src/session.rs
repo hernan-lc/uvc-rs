@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use rusb::{Context, Device, DeviceHandle};
+use rusb::{Context, Device, DeviceHandle, UsbContext};
 use uvc_core::{EngineError, EngineResult};
 
 use crate::{
@@ -72,6 +72,14 @@ impl RusbUsbDeviceSession {
         }
 
         Ok(())
+    }
+
+    pub fn raw_context(&self) -> *mut libusb1_sys::libusb_context {
+        self.handle.context().as_raw()
+    }
+
+    pub fn raw_handle(&self) -> *mut libusb1_sys::libusb_device_handle {
+        self.handle.as_raw()
     }
 
     pub fn read_endpoint(

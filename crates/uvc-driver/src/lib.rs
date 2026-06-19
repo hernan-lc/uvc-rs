@@ -1,4 +1,6 @@
 #[cfg(feature = "rusb")]
+pub mod iso;
+#[cfg(feature = "rusb")]
 pub mod session;
 
 pub mod backend;
@@ -21,6 +23,8 @@ pub use device::{
     validate_frame_format_for_endpoint,
 };
 pub use fake::{FakeCameraPipeline, FakeFrameGenerator, FakeMultiCameraEngine};
+#[cfg(feature = "rusb")]
+pub use iso::{CompletedIsoTransfer, IsoPacketLayout, LibusbIsochronousLoop};
 #[cfg(feature = "rusb")]
 pub use session::{RusbTransferReader, RusbUsbDeviceSession};
 pub use transfer::{
