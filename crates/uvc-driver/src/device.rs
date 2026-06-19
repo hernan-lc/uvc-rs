@@ -105,14 +105,31 @@ impl UsbEndpoint {
 pub struct UsbInterface {
     interface_number: u8,
     alternate_setting: u8,
+    class_code: u8,
+    subclass_code: u8,
+    protocol_code: u8,
     endpoints: Vec<UsbEndpoint>,
 }
 
 impl UsbInterface {
     pub fn new(interface_number: u8, alternate_setting: u8, endpoints: Vec<UsbEndpoint>) -> Self {
+        Self::with_class_codes(interface_number, alternate_setting, 0, 0, 0, endpoints)
+    }
+
+    pub fn with_class_codes(
+        interface_number: u8,
+        alternate_setting: u8,
+        class_code: u8,
+        subclass_code: u8,
+        protocol_code: u8,
+        endpoints: Vec<UsbEndpoint>,
+    ) -> Self {
         Self {
             interface_number,
             alternate_setting,
+            class_code,
+            subclass_code,
+            protocol_code,
             endpoints,
         }
     }
@@ -123,6 +140,18 @@ impl UsbInterface {
 
     pub fn alternate_setting(&self) -> u8 {
         self.alternate_setting
+    }
+
+    pub fn class_code(&self) -> u8 {
+        self.class_code
+    }
+
+    pub fn subclass_code(&self) -> u8 {
+        self.subclass_code
+    }
+
+    pub fn protocol_code(&self) -> u8 {
+        self.protocol_code
     }
 
     pub fn endpoints(&self) -> &[UsbEndpoint] {
@@ -139,6 +168,14 @@ impl UsbInterface {
 
     pub fn has_iso_in_endpoint(&self) -> bool {
         self.endpoints.iter().any(UsbEndpoint::is_iso_in_endpoint)
+    }
+
+    pub fn is_uvc_video_control_interface(&self) -> bool {
+        self.class_code == 0x0e && self.subclass_code == 0x01
+    }
+
+    pub fn is_uvc_streaming_interface(&self) -> bool {
+        self.class_code == 0x0e && self.subclass_code == 0x02
     }
 }
 
@@ -188,6 +225,59 @@ impl UsbDevice {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UsbDeviceProfile {
+    device: UsbDevice,
+    interfaces: Vec<UsbInterface>,
+}
+
+impl UsbDeviceProfile {
+    pub fn new(device: UsbDevice) -> Self {
+        Self {
+            device,
+            interfaces: Vec::new(),
+        }
+    }
+
+    pub fn with_interfaces(device: UsbDevice, interfaces: Vec<UsbInterface>) -> Self {
+        Self { device, interfaces }
+    }
+
+    pub fn push_interface(&mut self, interface: UsbInterface) {
+        self.interfaces.push(interface);
+    }
+
+    pub fn device(&self) -> &UsbDevice {
+        &self.device
+    }
+
+    pub fn interfaces(&self) -> &[UsbInterface] {
+        &self.interfaces
+    }
+
+    pub fn uvc_video_control_interfaces(&self) -> impl Iterator<Item = &UsbInterface> {
+        self.interfaces
+            .iter()
+            .filter(|interface| interface.is_uvc_video_control_interface())
+    }
+
+    pub fn uvc_streaming_interfaces(&self) -> impl Iterator<Item = &UsbInterface> {
+        self.interfaces
+            .iter()
+            .filter(|interface| interface.is_uvc_streaming_interface())
+    }
+
+    pub fn has_uvc_streaming_interface(&self) -> bool {
+        self.uvc_streaming_interfaces().next().is_some()
+    }
+
+    pub fn select_uvc_streaming_interface(&self) -> Option<&UsbInterface> {
+        self.uvc_streaming_interfaces()
+            .filter(|interface| interface.has_iso_in_endpoint())
+            .max_by_key(|interface| interface.bandwidth_bytes_per_second())
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct UsbDeviceFilter {
     vendor_id: Option<u16>,
@@ -230,6 +320,10 @@ pub fn select_highest_bandwidth_interface(interfaces: &[UsbInterface]) -> Option
         .iter()
         .filter(|interface| interface.has_iso_in_endpoint())
         .max_by_key(|interface| interface.bandwidth_bytes_per_second())
+}
+
+pub fn select_uvc_streaming_interface(profile: &UsbDeviceProfile) -> Option<&UsbInterface> {
+    profile.select_uvc_streaming_interface()
 }
 
 pub fn validate_frame_format_for_endpoint(
@@ -302,6 +396,49 @@ mod tests {
             select_highest_bandwidth_interface(&[low.clone(), out_only, high.clone()]),
             Some(&high)
         );
+    }
+
+    #[test]
+    fn selects_uvc_streaming_interface_with_highest_bandwidth() {
+        let control = UsbInterface::with_class_codes(1, 0, 0x0e, 0x01, 0, Vec::new());
+        let low_stream = UsbInterface::with_class_codes(
+            1,
+            1,
+            0x0e,
+            0x02,
+            0,
+            vec![endpoint(0x81, UsbTransferType::Isochronous, 512)],
+        );
+        let non_streaming = UsbInterface::with_class_codes(
+            1,
+            2,
+            0xff,
+            0x00,
+            0,
+            vec![endpoint(0x81, UsbTransferType::Isochronous, 2048)],
+        );
+        let high_stream = UsbInterface::with_class_codes(
+            1,
+            3,
+            0x0e,
+            0x02,
+            0,
+            vec![endpoint(0x81, UsbTransferType::Isochronous, 1024)],
+        );
+        let profile = UsbDeviceProfile::with_interfaces(
+            UsbDevice::new(0x1234, 0x5678, 1, 2),
+            vec![
+                control,
+                low_stream.clone(),
+                non_streaming,
+                high_stream.clone(),
+            ],
+        );
+
+        assert!(profile.has_uvc_streaming_interface());
+        assert_eq!(profile.uvc_video_control_interfaces().count(), 1);
+        assert_eq!(profile.uvc_streaming_interfaces().count(), 2);
+        assert_eq!(select_uvc_streaming_interface(&profile), Some(&high_stream));
     }
 
     #[test]

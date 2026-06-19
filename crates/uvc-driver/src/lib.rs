@@ -12,9 +12,10 @@ pub use descriptor::{
     UvcFormatType, UvcFrame, UvcStreamCollection, UvcStreamInterface,
 };
 pub use device::{
-    TransferDirection as UsbTransferDirection, UsbDevice, UsbDeviceFilter, UsbEndpoint,
-    UsbInterface, UsbTransferType, select_highest_bandwidth_endpoint,
-    select_highest_bandwidth_interface, validate_frame_format_for_endpoint,
+    TransferDirection as UsbTransferDirection, UsbDevice, UsbDeviceFilter, UsbDeviceProfile,
+    UsbEndpoint, UsbInterface, UsbTransferType, select_highest_bandwidth_endpoint,
+    select_highest_bandwidth_interface, select_uvc_streaming_interface,
+    validate_frame_format_for_endpoint,
 };
 pub use fake::{FakeCameraPipeline, FakeFrameGenerator, FakeMultiCameraEngine};
 pub use transfer::{CompletedTransfer, TransferDirection, TransferKind, TransferRequest};

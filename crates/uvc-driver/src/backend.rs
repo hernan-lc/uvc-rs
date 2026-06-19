@@ -3,9 +3,9 @@ use uvc_core::EngineResult;
 use crate::UsbDevice;
 
 #[cfg(feature = "rusb")]
-use crate::UsbDeviceFilter;
+use crate::{UsbDeviceFilter, UsbDeviceProfile, UsbEndpoint, UsbInterface, UsbTransferType};
 #[cfg(feature = "rusb")]
-use rusb::UsbContext;
+use rusb::{ConfigDescriptor, EndpointDescriptor, TransferType, UsbContext};
 #[cfg(feature = "rusb")]
 use uvc_core::EngineError;
 
@@ -60,6 +60,35 @@ impl RusbUsbBackend {
     pub fn filter(&self) -> &UsbDeviceFilter {
         &self.filter
     }
+
+    pub fn discover_devices(&mut self) -> EngineResult<Vec<UsbDeviceProfile>> {
+        let devices = self.context.devices().map_err(rusb_error)?;
+        let mut result = Vec::new();
+
+        for device in devices.iter() {
+            let descriptor = device.device_descriptor().map_err(rusb_error)?;
+            let usb_device = UsbDevice::new(
+                descriptor.vendor_id(),
+                descriptor.product_id(),
+                device.bus_number(),
+                device.address(),
+            );
+
+            if !self.filter.matches(&usb_device) {
+                continue;
+            }
+
+            let mut profile = UsbDeviceProfile::new(usb_device);
+
+            if let Ok(config) = device.active_config_descriptor() {
+                parse_config_descriptor(&mut profile, &config);
+            }
+
+            result.push(profile);
+        }
+
+        Ok(result)
+    }
 }
 
 #[cfg(feature = "rusb")]
@@ -83,6 +112,48 @@ impl UsbBackend for RusbUsbBackend {
         }
 
         Ok(result)
+    }
+}
+
+#[cfg(feature = "rusb")]
+fn parse_config_descriptor(profile: &mut UsbDeviceProfile, config: &ConfigDescriptor) {
+    for interface in config.interfaces() {
+        for descriptor in interface.descriptors() {
+            let endpoints = descriptor
+                .endpoint_descriptors()
+                .map(endpoint_from_descriptor)
+                .collect::<Vec<_>>();
+            let usb_interface = UsbInterface::with_class_codes(
+                descriptor.interface_number(),
+                descriptor.setting_number(),
+                descriptor.class_code(),
+                descriptor.sub_class_code(),
+                descriptor.protocol_code(),
+                endpoints,
+            );
+
+            profile.push_interface(usb_interface);
+        }
+    }
+}
+
+#[cfg(feature = "rusb")]
+fn endpoint_from_descriptor(descriptor: EndpointDescriptor) -> UsbEndpoint {
+    UsbEndpoint::new(
+        descriptor.address(),
+        transfer_type_from_rusb(descriptor.transfer_type()),
+        descriptor.max_packet_size(),
+        descriptor.interval(),
+    )
+}
+
+#[cfg(feature = "rusb")]
+fn transfer_type_from_rusb(transfer_type: TransferType) -> UsbTransferType {
+    match transfer_type {
+        TransferType::Control => UsbTransferType::Control,
+        TransferType::Isochronous => UsbTransferType::Isochronous,
+        TransferType::Interrupt => UsbTransferType::Interrupt,
+        TransferType::Bulk => UsbTransferType::Bulk,
     }
 }
 
