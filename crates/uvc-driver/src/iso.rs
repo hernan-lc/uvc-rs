@@ -493,8 +493,8 @@ fn duration_to_millis(duration: Duration) -> u32 {
 
 fn duration_to_timeval(duration: Duration) -> libc::timeval {
     let mut value: libc::timeval = unsafe { mem::zeroed() };
-    value.tv_sec = duration.as_secs().try_into().unwrap_or(i32::MAX);
-    value.tv_usec = duration.subsec_micros().try_into().unwrap_or(i32::MAX);
+    value.tv_sec = duration.as_secs().try_into().unwrap_or(i64::MAX);
+    value.tv_usec = duration.subsec_micros().try_into().unwrap_or(i64::MAX);
     value
 }
 

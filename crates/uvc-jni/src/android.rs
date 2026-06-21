@@ -78,9 +78,10 @@ pub struct AndroidUsbDeviceConnection {
 #[cfg(all(feature = "android", unix))]
 impl AndroidUsbDeviceConnection {
     pub fn open(device: AndroidUsbDevice) -> EngineResult<Self> {
+        let fd = device.clone().fd().fd();
         let context = Context::new().map_err(rusb_error)?;
         let handle =
-            unsafe { context.open_device_with_fd(device.fd().fd()) }.map_err(rusb_error)?;
+            unsafe { context.open_device_with_fd(fd) }.map_err(rusb_error)?;
 
         Ok(Self {
             device,
