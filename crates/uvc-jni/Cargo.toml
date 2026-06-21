@@ -4,8 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+crate-type = ["cdylib"]
+
 [features]
-default = []
 android = ["dep:libusb1-sys", "dep:rusb", "uvc-driver/rusb"]
 
 [dependencies]
