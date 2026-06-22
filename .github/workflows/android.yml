@@ -22,9 +22,13 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Setup Android NDK
+        id: ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -39,14 +43,23 @@ jobs:
       - name: Build uvc-jni
         run: |
           ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }} \
-          cargo ndk -t ${{ matrix.target }} build -p uvc-jni --features android
+          cargo ndk -t ${{ matrix.target }} build --release -p uvc-jni --features android
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: uvc-jni-${{ matrix.target }}
-          path: target/${{ matrix.target }}/debug/libuvc_jni.so
+          path: target/${{ matrix.target }}/release/libuvc_jni.so
           retention-days: 14
+
+      - name: Prepare and Build Android App
+        run: |
+          if [ "${{ matrix.target }}" == "aarch64-linux-android" ]; then
+            mkdir -p android-app/app/src/main/cpp/arm64-v8a
+            cp target/aarch64-linux-android/release/libuvc_jni.so android-app/app/src/main/cpp/arm64-v8a/libuvc_jni.so
+          fi
+          cd android-app
+          gradle assembleDebug
 
   emulator_test:
     runs-on: ubuntu-latest
