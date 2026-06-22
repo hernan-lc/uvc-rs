@@ -68,7 +68,7 @@ jobs:
             cp "target/${{ matrix.target }}/release/libuvc_jni.so" "android-app/app/src/main/cpp/$ABI/libuvc_jni.so"
 
             cd android-app
-            gradle assembleDebug -PtargetAbi=$ABI
+            gradle assembleDebug -PtargetAbi=$ABI -Pandroid.injected.abi=$ABI
           fi
 
   emulator_test:
