@@ -7,7 +7,19 @@ android {
         applicationId 'com.test.uvc'
         minSdk 26
         targetSdk 35
-        externalNativeBuild { cmake { cppFlags '' } }
+        ndk {
+            if (project.hasProperty('targetAbi')) {
+                abiFilters project.property('targetAbi')
+            }
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags ''
+                if (project.hasProperty('targetAbi')) {
+                    abiFilters project.property('targetAbi')
+                }
+            }
+        }
     }
     buildTypes { release { minifyEnabled false } }
     externalNativeBuild { cmake { path file('CMakeLists.txt') } }
